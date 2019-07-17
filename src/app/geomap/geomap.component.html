@@ -1,0 +1,58 @@
+<div style="text-align:center">
+  <h1>
+    Geohash tools
+  </h1>
+</div>
+
+<form class="location-form" [formGroup]="locationForm">
+  <div class="row">
+    <div class="col">
+      <label>Latitude:
+        <input formControlName="lat" placeholder="Latitude">
+      </label>
+    </div>
+    <div class="col">
+      <label>Longitude:
+        <input formControlName="lng" placeholder="Longitude">
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Geohash:
+        <input formControlName="hash" placeholder="Geohash">
+      </label>
+    </div>
+    <div class="col">
+      <label>Precision:
+        <input formControlName="precision" type="number" min="1" max="12">
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>
+        <input formControlName="showNeighbourBound" type="checkbox">
+        Draw neighbours' bounds?
+      </label>
+    </div>
+    <div class="col">
+      <button (click)="recenterMap()">Re-center</button>
+    </div>
+  </div>
+</form>
+
+<div *ngIf="message" class="row">
+  {{message}}
+</div>
+
+<div class="map-container">
+  <div id="map" #map></div>
+</div>
+<h2>Neighbours</h2>
+<div class="neighbours">
+  <span [ngClass]="{ 'current': neighbour == location.hash }" *ngFor="let neighbour of neighbours">
+    {{neighbour}}
+  </span>
+</div>
+

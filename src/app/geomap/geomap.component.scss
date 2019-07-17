@@ -1,0 +1,46 @@
+#map {
+  width: 100%;
+  height: calc(100% - 20px);
+  min-height: 400px;
+}
+
+.map-container {
+  width: 100%;
+  min-height: 420px;
+  resize: vertical;
+  overflow: auto;
+}
+
+.location-form {
+  .row {
+    margin: 10px 0;
+    .col {
+      max-width: 230px;
+      display: inline-block;
+      width: calc(50% - 10px);
+      margin-right: 10px;
+
+      &:last-child {
+        margin-right: 0;
+      }
+    }
+  }
+}
+
+.neighbours {
+  display: flex;
+  height: 90px;
+  width: 330px;
+  flex-flow: row wrap;
+  justify-content: space-around;
+
+  span {
+    width: 100px;
+    height: 30px;
+    margin: auto;
+  }
+
+  .current {
+    font-weight: bold;
+  }
+}
