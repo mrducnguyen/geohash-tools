@@ -1,8 +1,9 @@
-import { Component, ViewChild, OnInit } from '@angular/core';
+import { Component, ViewChild, OnInit, Output, Input, EventEmitter } from '@angular/core';
 import { FormGroup, FormControl } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import {} from 'googlemaps';
-import Geohash from 'latlon-geohash';
+import * as geoutil from '../../utils';
 import * as _ from 'lodash';
 
 const DEBOUNCE_DELAY = 400;
@@ -34,6 +35,9 @@ const COLORS = {
   styleUrls: ['./geomap.component.scss']
 })
 export class GeomapComponent implements OnInit {
+  @Input() locationSubject: Subject<google.maps.LatLng>;
+  @Output() mapInit = new EventEmitter<google.maps.Map>();
+
   @ViewChild('map', {static: true}) mapElement: any;
   map: google.maps.Map;
 
@@ -41,17 +45,28 @@ export class GeomapComponent implements OnInit {
     lat: new FormControl(''),
     lng: new FormControl(''),
     hash: new FormControl(''),
-    precision: new FormControl(''),
-    showNeighbourBound: new FormControl(false)
+    precision: new FormControl('')
+  });
+
+  drawControlForm = new FormGroup({
+    drawNeighbourBounds: new FormControl(false),
+    showCircle: new FormControl(false),
+    circleRadius: new FormControl({value: 4.88, disabled: true})
   })
 
   location = {
     lat: 0,
     lng: 0,
     hash: '',
-    precision: INITIAL_PRECISION,
-    showNeighbourBound: false
-  }
+    precision: INITIAL_PRECISION
+  };
+
+  drawControl = {
+    drawNeighbourBounds: false,
+    showCircle: false,
+    circleRadius: 4.88
+  };
+
   message = ''
 
   title = 'geohash-app';
@@ -59,7 +74,7 @@ export class GeomapComponent implements OnInit {
   neighboursDraws = [];
 
   ngOnInit() {
-    this.setupLocationChange();
+    this.setupFormEvents();
 
     const mapProperties = {
       center: new google.maps.LatLng(this.location.lat, this.location.lng),
@@ -70,6 +85,17 @@ export class GeomapComponent implements OnInit {
     this.attachMapEvents();
     // initial location
     this.syncLocation(_.extend({}, this.location, INITIAL_LOCATION));
+  }
+
+  ngAfterViewInit() {
+    // passing the map reference to anyone who subscribe to the event
+    this.mapInit.next(this.map);
+    this.locationSubject.subscribe(loc => {
+      this.syncLocation(_.extend({}, this.location, {
+        lat: loc.lat(),
+        lng: loc.lng()
+      }))
+    })
   }
 
   attachMapEvents() {
@@ -95,45 +121,42 @@ export class GeomapComponent implements OnInit {
     newLocation.lat = parseFloat(newLocation.lat);
     newLocation.lng = parseFloat(newLocation.lng);
 
-    if (this.location.showNeighbourBound !== newLocation.showNeighbourBound) {
-      this.location.showNeighbourBound = newLocation.showNeighbourBound;
-      this.drawNeighbourBounds();
-      return;
-    }
-
-    if (_.isEqual(this.location, newLocation)) {
+    if (_.isEqual(
+      _.omit(this.location),
+      _.omit(newLocation)
+    )) {
       // no change
       return;
     }
-    let latlon = {
+
+    let latlng = {
       lat: newLocation.lat,
-      lon: newLocation.lng
+      lng: newLocation.lng
     }
     if (this.location.hash !== newLocation.hash) {
       this.location.hash = newLocation.hash;
       this.location.precision = newLocation.hash.length;
-      latlon = Geohash.decode(newLocation.hash);
+      latlng = geoutil.decode(newLocation.hash);
     } else if (this.location.precision !== newLocation.precision) {
       this.location.precision = newLocation.precision;
-      this.location.hash = Geohash.encode(newLocation.lat, newLocation.lng, newLocation.precision);
-      latlon = Geohash.decode(this.location.hash);
+      this.location.hash = geoutil.encode(newLocation.lat, newLocation.lng, newLocation.precision);
+      latlng = geoutil.decode(this.location.hash);
     } else {
-      this.location.hash = Geohash.encode(newLocation.lat, newLocation.lng, newLocation.precision);
+      this.location.hash = geoutil.encode(newLocation.lat, newLocation.lng, newLocation.precision);
     }
-    this.location.lat = latlon.lat;
-    this.location.lng = latlon.lon;
-    this.setForm();
+    this.location.lat = latlng.lat;
+    this.location.lng = latlng.lng;
+    this.setLocationForm();
     this.setNeighbours();
     this.recenterMap();
-    this.drawNeighbourBounds();
   }
 
-  setForm() {
+  setLocationForm() {
     this.locationForm.setValue(this.location);
   }
 
   setNeighbours() {
-    const neighbours = Geohash.neighbours(this.location.hash);
+    const neighbours = geoutil.neighbours(this.location.hash);
     this.neighbours = [
       neighbours.nw,
       neighbours.n,
@@ -147,7 +170,39 @@ export class GeomapComponent implements OnInit {
     ]
   }
 
-  drawNeighbourBounds() {
+  drawOnMap(control) {
+    const compareList = ['showCircle'];
+    if (control.showCircle) {
+      compareList.push('circleRadius');
+    } else {
+      compareList.push('drawNeighbourBounds');
+    }
+    const pickOld = _.pick(this.drawControl, compareList);
+    const pickNew = _.pick(control, compareList);
+    console.log(compareList, pickOld, pickNew, _.isEqual(
+      pickOld,
+      pickNew
+    ));
+
+    if (_.isEqual(
+      _.pick(this.drawControl, compareList),
+      _.pick(control, compareList)
+    )) {
+      // no change
+      return;
+    }
+
+    if (control.showCircle) {
+      this.drawControlForm.get('circleRadius').enable();
+      this.drawControlForm.get('drawNeighbourBounds').disable();
+    } else {
+      this.drawControlForm.get('circleRadius').disable();
+      this.drawControlForm.get('drawNeighbourBounds').enable();
+    }
+    this.drawControl.showCircle = control.showCircle;
+  }
+
+  drawNeighbourBounds(control) {
     // empty the previous recs
     for (let draw of this.neighboursDraws) {
       draw.rec.setMap(null);
@@ -159,10 +214,10 @@ export class GeomapComponent implements OnInit {
 
     for (let hash of this.neighbours) {
       // skip drawing if showNeighbourBound is not set, and it's the main location hash
-      if (!this.location.showNeighbourBound && hash !== this.location.hash) continue;
+      if (!control.drawNeighbourBounds && hash !== this.location.hash) continue;
 
-      const bounds = Geohash.bounds(hash);
-      const loc = Geohash.decode(hash);
+      const bounds = geoutil.bounds(hash);
+      const loc = geoutil.decode(hash);
       let strokeColor = COLORS.altLine,
         strokeOpacity = COLORS.altLineOpacity,
         fillColor = COLORS.altFill,
@@ -173,6 +228,13 @@ export class GeomapComponent implements OnInit {
         fillColor = COLORS.mainFill;
         fillOpacity = COLORS.mainFillOpacity;
       }
+
+      let fontSize = (MIN_FONT_SIZE + (MAX_FONT_SIZE - MIN_FONT_SIZE) / this.location.precision);
+      const currentZoom = this.map.getZoom();
+      if (currentZoom > MAX_ZOOM) {
+        fontSize *= 1.2 * currentZoom / MAX_ZOOM;
+      }
+
       const draw = {
         rec: new google.maps.Rectangle({
           strokeColor: strokeColor,
@@ -184,17 +246,12 @@ export class GeomapComponent implements OnInit {
           bounds: {
             north: bounds.ne.lat,
             south: bounds.sw.lat,
-            east: bounds.ne.lon,
-            west: bounds.sw.lon
+            east: bounds.ne.lng,
+            west: bounds.sw.lng
           }
         }),
-        marker: null
-      };
-      if (hash.length < 8) {
-        let fontSize = MIN_FONT_SIZE + (MAX_FONT_SIZE - MIN_FONT_SIZE) / this.location.precision;
-
-        draw.marker = new google.maps.Marker({
-          position: new google.maps.LatLng(loc.lat, loc.lon),
+        marker: new google.maps.Marker({
+          position: new google.maps.LatLng(loc.lat, loc.lng),
           label: {
             text: hash,
             fontSize: fontSize + 'px'
@@ -205,19 +262,20 @@ export class GeomapComponent implements OnInit {
           },
           map: this.map
         })
-      }
-
+      };
       this.neighboursDraws.push(draw);
     }
   }
 
-  setupLocationChange() {
-    this.setForm();
+  setupFormEvents() {
+    this.setLocationForm();
     this.locationForm.valueChanges.
     pipe(
       debounceTime(DEBOUNCE_DELAY),
       distinctUntilChanged()
     ).
     subscribe(newValue => this.syncLocation(newValue));
+
+    this.drawControlForm.valueChanges.subscribe(newValue => this.drawOnMap(newValue));
   }
 }

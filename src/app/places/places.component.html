@@ -1,1 +1,17 @@
-<p>places works!</p>
+<div class="place-search-form">
+  <h2>Search for a location</h2>
+  <form [formGroup]="placeForm">
+    <label>
+      Search:
+      <input type="text" formControlName="placeSearch" >
+    </label>
+    <div class="place-loading" *ngIf="placeLoading"></div>
+  </form>
+  <div class="suggestion-container">
+    <div class="location-suggestion-wrapper" *ngIf="suggestions && suggestions.length">
+      <div class="place-suggestion" *ngFor="let place of suggestions" (click)="selectSuggestion(place)">
+        {{place.name}} ({{place.formatted_address}})
+      </div>
+    </div>
+  </div>
+</div>
