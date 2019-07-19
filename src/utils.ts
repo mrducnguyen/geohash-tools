@@ -1,3 +1,4 @@
+// https://github.com/firebase/geofire-js/blob/master/src/utils.ts
 // Default geohash length
 export const GEOHASH_PRECISION = 10;
 
@@ -424,7 +425,7 @@ export function wrapLongitude(longitude: number): number {
  *
  * @param lat The Latitude.
  * @param lng The Longitude.
- * @param size The size of the bounding box.
+ * @param size The size of the bounding box in metres
  * @returns The number of bits necessary for the geohash.
  */
 export function boundingBoxBits(lat:number, lng:number, size: number): number {
@@ -467,13 +468,65 @@ export function boundingBoxCoordinates(lat:number, lng:number, radius:number): n
   ];
 }
 
+/**
+ * Calculates the bounding box query for a geohash with x bits precision.
+ *
+ * @param geohash The geohash whose bounding box query to generate.
+ * @param bits The number of bits of precision.
+ * @returns A [start, end] pair of geohashes.
+ */
+export function geohashQuery(geohash: string, bits: number): string[] {
+  validateGeohash(geohash);
+  const precision = Math.ceil(bits / BITS_PER_CHAR);
+  if (geohash.length < precision) {
+    return [geohash, geohash + '~'];
+  }
+  geohash = geohash.substring(0, precision);
+  const base = geohash.substring(0, geohash.length - 1);
+  const lastValue = BASE32.indexOf(geohash.charAt(geohash.length - 1));
+  const significantBits = bits - (base.length * BITS_PER_CHAR);
+  const unusedBits = (BITS_PER_CHAR - significantBits);
+  // delete unused bits
+  const startValue = (lastValue >> unusedBits) << unusedBits;
+  const endValue = startValue + (1 << unusedBits);
+  if (endValue > 31) {
+    return [base + BASE32[startValue], base + '~'];
+  } else {
+    return [base + BASE32[startValue], base + BASE32[endValue]];
+  }
+}
+
+export function circleOverlappingHashPrecision(lat:number, lng:number, radius:number): number {
+  const queryBits = Math.max(1, boundingBoxBits(lat, lng, radius));
+  return Math.ceil(queryBits / BITS_PER_CHAR);
+}
+
 export function circleOverlappingHashes(lat:number,  lng:number, radius:number): string[] {
-  const precision = boundingBoxBits(lat, lng, radius);
-  const boundingBox = boundingBoxCoordinates(lat, lng, radius);
+  const queryBits = Math.max(1, boundingBoxBits(lat, lng, radius));
+  const geohashPrecision = Math.ceil(queryBits / BITS_PER_CHAR);
+  const coordinates = boundingBoxCoordinates(lat, lng, radius);
+  const queries = coordinates.map((coords) => {
+    return this.geohashQuery(this.encode(coords[0], coords[1], geohashPrecision), queryBits);
+  });
   const hashes:string[] = [];
-  for (let i = 0; i < boundingBox.length; i++) {
-    let coords = boundingBox[i];
-    hashes.push(encode(coords[0], coords[1], precision));
+  const seen = new Map<string, boolean>();
+  // navigate through the queries and add unique hashes into the result
+  for (let i = 0; i < queries.length; i++) {
+    let start = queries[i][0];
+    const end = queries[i][1];
+    while (start < end) {
+      if (!seen.has(start)) {
+        hashes.push(start);
+        seen.set(start, true);
+      }
+      let lastCharPos = BASE32.indexOf(start[start.length - 1]);
+      if (lastCharPos >= 0 && lastCharPos < BASE32.length - 1) {
+        start = start.substring(0, start.length - 1) + BASE32[lastCharPos + 1];
+      } else {
+        // no more character
+        break;
+      }
+    }
   }
   return hashes;
 }

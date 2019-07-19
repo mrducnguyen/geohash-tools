@@ -32,12 +32,13 @@
       <label>
         <input formControlName="showCircle" type="checkbox">
         Draw circle?
-      </label>
-    </div>
-    <div class="col">
+      </label><br>
       <label>Radius (KMs):
         <input formControlName="circleRadius" type="number" step="0.01">
       </label>
+    </div>
+    <div class="col">
+      Calculated precision for circle radius: <br><strong>{{drawControl.calculatedPrecision}}</strong>
     </div>
   </div>
   <div class="row">

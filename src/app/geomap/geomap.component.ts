@@ -22,7 +22,7 @@ const COLORS = {
   mainLine: '#a30f0f',
   mainLineOpacity: 0.8,
   mainFill: '#a30f0f',
-  mainFillOpacity: 0.3,
+  mainFillOpacity: 0.5,
   altLine: '#005aeb',
   altLineOpacity: 0.8,
   altFill: '#005aeb',
@@ -66,9 +66,10 @@ export class GeomapComponent implements OnInit {
   };
 
   drawControl = {
-    drawNeighbourBounds: false,
     showCircle: false,
-    circleRadius: 4.88
+    drawNeighbourBounds: false,
+    circleRadius: 4.88,
+    calculatedPrecision: 0
   };
 
   message = ''
@@ -89,6 +90,7 @@ export class GeomapComponent implements OnInit {
     this.attachMapEvents();
     // initial location
     this.syncLocation(_.extend({}, this.location, INITIAL_LOCATION));
+    this.drawOnMap(this.drawControl, true);
   }
 
   ngAfterViewInit() {
@@ -115,6 +117,9 @@ export class GeomapComponent implements OnInit {
   recenterMap() {
     this.map.setCenter(new google.maps.LatLng(this.location.lat, this.location.lng));
     let zoom = this.location.precision / PRECISION_TO_ZOOM;
+    if (this.drawControl.showCircle) {
+      zoom = this.drawControl.calculatedPrecision / PRECISION_TO_ZOOM;
+    }
     if (zoom < MAX_ZOOM) {
       this.map.setZoom(zoom);
     }
@@ -151,8 +156,8 @@ export class GeomapComponent implements OnInit {
     this.location.lat = latlng.lat;
     this.location.lng = latlng.lng;
     this.setLocationForm();
-    this.setNeighbours();
     this.recenterMap();
+    this.drawOnMap(this.drawControl, true);
   }
 
   setLocationForm() {
@@ -164,7 +169,7 @@ export class GeomapComponent implements OnInit {
       this.neighbours = geoutil.circleOverlappingHashes(
         this.location.lat,
         this.location.lng,
-        this.drawControl.circleRadius
+        this.drawControl.circleRadius * 1000
       );
     } else {
       this.neighbours = geoutil.neighbourList(this.location.hash);
@@ -173,7 +178,8 @@ export class GeomapComponent implements OnInit {
     this.neighbours.splice(4, 0, this.location.hash);
   }
 
-  drawOnMap(control) {
+  drawOnMap(control, forceDraw = false) {
+    this.setNeighbours();
     // change detecting
     // this is important to prevent endless change loop
     if (this.drawControl.showCircle !== control.showCircle) {
@@ -185,11 +191,15 @@ export class GeomapComponent implements OnInit {
       this.drawControl.circleRadius = control.circleRadius;
     } else if (this.drawControl.drawNeighbourBounds !== control.drawNeighbourBounds) {
       this.drawControl.drawNeighbourBounds = control.drawNeighbourBounds;
-    } else {
+    } else if (!forceDraw) {
       // nothing has changed
       return;
     }
-
+    this.drawControl.calculatedPrecision = geoutil.circleOverlappingHashPrecision(
+      this.location.lat,
+      this.location.lng,
+      this.drawControl.circleRadius * 1000
+    );
     if (this.drawControl.showCircle) {
       this.drawControlForm.get('circleRadius').enable();
     } else {
@@ -210,15 +220,14 @@ export class GeomapComponent implements OnInit {
 
     for (let hash of this.neighbours) {
       // skip drawing if drawNeighbourBounds is not set, and it's not the main location hash
-      if (!this.drawControl.drawNeighbourBounds && hash !== this.location.hash) continue;
-
+      if (!this.drawControl.drawNeighbourBounds && !this.location.hash.startsWith(hash)) continue;
       const bounds = geoutil.bounds(hash);
       const loc = geoutil.decode(hash);
       let strokeColor = COLORS.altLine,
         strokeOpacity = COLORS.altLineOpacity,
         fillColor = COLORS.altFill,
         fillOpacity = COLORS.altFillOpacity;
-      if (hash === this.location.hash) {
+      if (this.location.hash.startsWith(hash)) {
         strokeColor = COLORS.mainLine;
         strokeOpacity = COLORS.mainLineOpacity;
         fillColor = COLORS.mainFill;
