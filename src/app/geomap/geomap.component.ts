@@ -1,5 +1,5 @@
 import { Component, ViewChild, OnInit, Output, Input, EventEmitter } from '@angular/core';
-import { FormGroup, FormControl } from '@angular/forms';
+import { FormGroup, FormControl, ControlContainer } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import {} from 'googlemaps';
@@ -27,6 +27,10 @@ const COLORS = {
   altLineOpacity: 0.8,
   altFill: '#005aeb',
   altFillOpacity: 0.3,
+  circleLine: '#a8e000',
+  circleLineOpacity: 0.8,
+  circleFill: '#a8e000',
+  circleFillOpacity: 0.3,
 };
 
 @Component({
@@ -156,65 +160,57 @@ export class GeomapComponent implements OnInit {
   }
 
   setNeighbours() {
-    const neighbours = geoutil.neighbours(this.location.hash);
-    this.neighbours = [
-      neighbours.nw,
-      neighbours.n,
-      neighbours.ne,
-      neighbours.w,
-      this.location.hash,
-      neighbours.e,
-      neighbours.sw,
-      neighbours.s,
-      neighbours.se,
-    ]
+    if (this.drawControl.showCircle) {
+      this.neighbours = geoutil.circleOverlappingHashes(
+        this.location.lat,
+        this.location.lng,
+        this.drawControl.circleRadius
+      );
+    } else {
+      this.neighbours = geoutil.neighbourList(this.location.hash);
+    }
+    // add the current hash in the middle
+    this.neighbours.splice(4, 0, this.location.hash);
   }
 
   drawOnMap(control) {
-    const compareList = ['showCircle'];
-    if (control.showCircle) {
-      compareList.push('circleRadius');
+    // change detecting
+    // this is important to prevent endless change loop
+    if (this.drawControl.showCircle !== control.showCircle) {
+      // definitely a change
+      this.drawControl.showCircle = control.showCircle;
+    } else if (control.circleRadius !== undefined &&
+      this.drawControl.circleRadius !== control.circleRadius) {
+      // circle radius changed
+      this.drawControl.circleRadius = control.circleRadius;
+    } else if (this.drawControl.drawNeighbourBounds !== control.drawNeighbourBounds) {
+      this.drawControl.drawNeighbourBounds = control.drawNeighbourBounds;
     } else {
-      compareList.push('drawNeighbourBounds');
-    }
-    const pickOld = _.pick(this.drawControl, compareList);
-    const pickNew = _.pick(control, compareList);
-    console.log(compareList, pickOld, pickNew, _.isEqual(
-      pickOld,
-      pickNew
-    ));
-
-    if (_.isEqual(
-      _.pick(this.drawControl, compareList),
-      _.pick(control, compareList)
-    )) {
-      // no change
+      // nothing has changed
       return;
     }
 
-    if (control.showCircle) {
+    if (this.drawControl.showCircle) {
       this.drawControlForm.get('circleRadius').enable();
-      this.drawControlForm.get('drawNeighbourBounds').disable();
     } else {
       this.drawControlForm.get('circleRadius').disable();
-      this.drawControlForm.get('drawNeighbourBounds').enable();
     }
-    this.drawControl.showCircle = control.showCircle;
+    this.drawNeighbourBounds();
   }
 
-  drawNeighbourBounds(control) {
-    // empty the previous recs
+  drawNeighbourBounds() {
+    // empty the previous shapes
     for (let draw of this.neighboursDraws) {
-      draw.rec.setMap(null);
-      if (draw.marker !== null) {
+      draw.shape.setMap(null);
+      if (draw.marker !== undefined) {
         draw.marker.setMap(null);
       }
     }
     this.neighboursDraws = [];
 
     for (let hash of this.neighbours) {
-      // skip drawing if showNeighbourBound is not set, and it's the main location hash
-      if (!control.drawNeighbourBounds && hash !== this.location.hash) continue;
+      // skip drawing if drawNeighbourBounds is not set, and it's not the main location hash
+      if (!this.drawControl.drawNeighbourBounds && hash !== this.location.hash) continue;
 
       const bounds = geoutil.bounds(hash);
       const loc = geoutil.decode(hash);
@@ -236,7 +232,7 @@ export class GeomapComponent implements OnInit {
       }
 
       const draw = {
-        rec: new google.maps.Rectangle({
+        shape: new google.maps.Rectangle({
           strokeColor: strokeColor,
           strokeOpacity: strokeOpacity,
           strokeWeight: 1,
@@ -264,6 +260,23 @@ export class GeomapComponent implements OnInit {
         })
       };
       this.neighboursDraws.push(draw);
+    }
+    if (this.drawControl.showCircle) {
+     this.neighboursDraws.push({
+       shape: new google.maps.Circle({
+        strokeColor: COLORS.circleLine,
+        strokeOpacity: COLORS.circleLineOpacity,
+        strokeWeight: 1,
+        fillColor: COLORS.circleFill,
+        fillOpacity: COLORS.circleFillOpacity,
+        map: this.map,
+        center: {
+          lat: this.location.lat,
+          lng: this.location.lng
+        },
+        radius: this.drawControl.circleRadius * 1000
+       })
+     });
     }
   }
 

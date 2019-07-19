@@ -342,6 +342,20 @@ export function neighbours(geohash) {
     };
 }
 
+export function neighbourList(geohash):string[] {
+  const neighs = this.neighbours(geohash);
+  return [
+    neighs.nw,
+    neighs.n,
+    neighs.ne,
+    neighs.w,
+    neighs.e,
+    neighs.sw,
+    neighs.s,
+    neighs.se
+  ];
+}
+
 /**
  * Calculates the number of degrees a given distance is at a given latitude.
  *
@@ -408,14 +422,15 @@ export function wrapLongitude(longitude: number): number {
  * Calculates the maximum number of bits of a geohash to get a bounding box that is larger than a
  * given size at the given coordinate.
  *
- * @param coordinate The coordinate as a [latitude, longitude] pair.
+ * @param lat The Latitude.
+ * @param lng The Longitude.
  * @param size The size of the bounding box.
  * @returns The number of bits necessary for the geohash.
  */
-export function boundingBoxBits(coordinate: number[], size: number): number {
+export function boundingBoxBits(lat:number, lng:number, size: number): number {
   const latDeltaDegrees = size / METERS_PER_DEGREE_LATITUDE;
-  const latitudeNorth = Math.min(90, coordinate[0] + latDeltaDegrees);
-  const latitudeSouth = Math.max(-90, coordinate[0] - latDeltaDegrees);
+  const latitudeNorth = Math.min(90, lat + latDeltaDegrees);
+  const latitudeSouth = Math.max(-90, lat - latDeltaDegrees);
   const bitsLat = Math.floor(latitudeBitsForResolution(size)) * 2;
   const bitsLongNorth = Math.floor(longitudeBitsForResolution(size, latitudeNorth)) * 2 - 1;
   const bitsLongSouth = Math.floor(longitudeBitsForResolution(size, latitudeSouth)) * 2 - 1;
@@ -427,28 +442,40 @@ export function boundingBoxBits(coordinate: number[], size: number): number {
  * geohash of these nine coordinates, truncated to a precision of at most radius, are guaranteed
  * to be prefixes of any geohash that lies within the circle.
  *
- * @param center The center given as [latitude, longitude].
+ * @param lat The Latitude.
+ * @param lng The Longitude.
  * @param radius The radius of the circle.
  * @returns The eight bounding box points.
  */
-export function boundingBoxCoordinates(center: number[], radius: number): number[][] {
+export function boundingBoxCoordinates(lat:number, lng:number, radius:number): number[][] {
   const latDegrees = radius / METERS_PER_DEGREE_LATITUDE;
-  const latitudeNorth = Math.min(90, center[0] + latDegrees);
-  const latitudeSouth = Math.max(-90, center[0] - latDegrees);
+  const latitudeNorth = Math.min(90, lat + latDegrees);
+  const latitudeSouth = Math.max(-90, lat - latDegrees);
   const longDegsNorth = metersToLongitudeDegrees(radius, latitudeNorth);
   const longDegsSouth = metersToLongitudeDegrees(radius, latitudeSouth);
   const longDegs = Math.max(longDegsNorth, longDegsSouth);
   return [
-    [center[0], center[1]],
-    [center[0], wrapLongitude(center[1] - longDegs)],
-    [center[0], wrapLongitude(center[1] + longDegs)],
-    [latitudeNorth, center[1]],
-    [latitudeNorth, wrapLongitude(center[1] - longDegs)],
-    [latitudeNorth, wrapLongitude(center[1] + longDegs)],
-    [latitudeSouth, center[1]],
-    [latitudeSouth, wrapLongitude(center[1] - longDegs)],
-    [latitudeSouth, wrapLongitude(center[1] + longDegs)]
+    [lat, lng],
+    [lat, wrapLongitude(lng - longDegs)],
+    [lat, wrapLongitude(lng + longDegs)],
+    [latitudeNorth, lng],
+    [latitudeNorth, wrapLongitude(lng - longDegs)],
+    [latitudeNorth, wrapLongitude(lng + longDegs)],
+    [latitudeSouth, lng],
+    [latitudeSouth, wrapLongitude(lng - longDegs)],
+    [latitudeSouth, wrapLongitude(lng + longDegs)]
   ];
+}
+
+export function circleOverlappingHashes(lat:number,  lng:number, radius:number): string[] {
+  const precision = boundingBoxBits(lat, lng, radius);
+  const boundingBox = boundingBoxCoordinates(lat, lng, radius);
+  const hashes:string[] = [];
+  for (let i = 0; i < boundingBox.length; i++) {
+    let coords = boundingBox[i];
+    hashes.push(encode(coords[0], coords[1], precision));
+  }
+  return hashes;
 }
 
 /**
