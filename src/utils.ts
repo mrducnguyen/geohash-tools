@@ -1,4 +1,8 @@
+// A bad copy&paste from
+// https://github.com/chrisveness/latlon-geohash/blob/master/latlon-geohash.js
+// and
 // https://github.com/firebase/geofire-js/blob/master/src/utils.ts
+//
 // Default geohash length
 export const GEOHASH_PRECISION = 10;
 
