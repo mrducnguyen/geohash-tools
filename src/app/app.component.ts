@@ -4,11 +4,7 @@ import { Subject }    from 'rxjs';
 @Component({
   selector: 'app-root',
   styleUrls: ['./app.component.scss'],
-  template: `
-    <h1>Geohash tool</h1>
-    <app-places [mapSubject]="mapSubject" [locationSubject]="locationSubject"></app-places>
-    <app-geomap (mapInit)="obtainMapRef($event)" [locationSubject]="locationSubject"></app-geomap>
-  `
+  templateUrl: './app.component.html'
 })
 export class AppComponent implements OnInit {
 

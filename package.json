@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build --outputPath=../public/geohash",
+    "build": "ng build --prod --outputPath=../public/geohash --base-href=/geohash --deploy-url=/geohash/",
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e"

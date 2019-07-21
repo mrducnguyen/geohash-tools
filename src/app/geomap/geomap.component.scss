@@ -1,3 +1,7 @@
+.red-text {
+  color: crimson;
+}
+
 #map {
   width: 100%;
   height: calc(100% - 20px);
@@ -42,6 +46,7 @@
   }
 
   .current {
+    @extend .red-text;
     font-weight: bold;
   }
 }
