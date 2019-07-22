@@ -1,14 +1,12 @@
 # GeohashApp
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 8.1.1.
+This project is just a simple tool to visualise what'd discussed here: https://angularfirebase.com/lessons/geolocation-query-in-firestore-realtime/
+
+The main calculations were taken from the Geofire's [utils](https://github.com/firebase/geofire-js/blob/master/src/utils.ts) and geohash encoding/decoding was taken from [latlon-geohash](https://github.com/chrisveness/latlon-geohash/blob/master/latlon-geohash.js)
 
 ## Development server
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
-
-## Code scaffolding
-
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
 
 ## Build
 
