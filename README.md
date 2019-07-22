@@ -4,6 +4,9 @@ This project is just a simple tool to visualise what'd discussed here: https://a
 
 The main calculations were taken from the Geofire's [utils](https://github.com/firebase/geofire-js/blob/master/src/utils.ts) and geohash encoding/decoding was taken from [latlon-geohash](https://github.com/chrisveness/latlon-geohash/blob/master/latlon-geohash.js)
 
+## Live app
+Check it out here: https://viex-tools.firebaseapp.com/geohash/
+
 ## Development server
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
