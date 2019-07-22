@@ -1,0 +1,5 @@
+<h1>Geohash tool</h1>
+<sup>**</sup><a href="https://en.wikipedia.org/wiki/Geohash" target="_blank">What is geohash?</a><br>
+<a href="https://github.com/mrducnguyen/geohash-tools" target="_blank">Source code</a>
+<app-places [mapSubject]="mapSubject" [locationSubject]="locationSubject"></app-places>
+<app-geomap (mapInit)="obtainMapRef($event)" [locationSubject]="locationSubject"></app-geomap>
