@@ -32,6 +32,12 @@
   }
 }
 
+.current-location {
+  @extend .red-text;
+  margin: 15px;
+  font-weight: bold;
+}
+
 .neighbours {
   display: flex;
   height: 90px;

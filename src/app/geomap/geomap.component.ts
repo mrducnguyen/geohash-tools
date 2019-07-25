@@ -173,9 +173,9 @@ export class GeomapComponent implements OnInit {
       );
     } else {
       this.neighbours = geoutil.neighbourList(this.location.hash);
+      // add the current hash in the middle
+      this.neighbours.splice(4, 0, this.location.hash);
     }
-    // add the current hash in the middle
-    this.neighbours.splice(4, 0, this.location.hash);
   }
 
   drawOnMap(control, forceDraw = false) {
@@ -284,7 +284,15 @@ export class GeomapComponent implements OnInit {
           lng: this.location.lng
         },
         radius: this.drawControl.circleRadius * 1000
-       })
+       }),
+       marker: new google.maps.Marker({
+        position: new google.maps.LatLng(this.location.lat, this.location.lng),
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 5
+        },
+        map: this.map
+      })
      });
     }
   }

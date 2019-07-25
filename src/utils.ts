@@ -442,24 +442,32 @@ export function boundingBoxBits(lat:number, lng:number, size: number): number {
  * @param radius The radius of the circle.
  * @returns The eight bounding box points.
  */
-export function boundingBoxCoordinates(lat:number, lng:number, radius:number): number[][] {
+export function boundingBoxCoordinates(lat:number, lng:number, radius:number): {
+    nw: {lat:number, lng:number},
+    n: {lat:number, lng:number},
+    ne: {lat:number, lng:number},
+    w: {lat:number, lng:number},
+    e: {lat:number, lng:number},
+    sw: {lat:number, lng:number},
+    s: {lat:number, lng:number},
+    se: {lat:number, lng:number}
+  } {
   const latDegrees = radius / METERS_PER_DEGREE_LATITUDE;
   const latitudeNorth = Math.min(90, lat + latDegrees);
   const latitudeSouth = Math.max(-90, lat - latDegrees);
   const longDegsNorth = metersToLongitudeDegrees(radius, latitudeNorth);
   const longDegsSouth = metersToLongitudeDegrees(radius, latitudeSouth);
   const longDegs = Math.max(longDegsNorth, longDegsSouth);
-  return [
-    [lat, lng],
-    [lat, wrapLongitude(lng - longDegs)],
-    [lat, wrapLongitude(lng + longDegs)],
-    [latitudeNorth, lng],
-    [latitudeNorth, wrapLongitude(lng - longDegs)],
-    [latitudeNorth, wrapLongitude(lng + longDegs)],
-    [latitudeSouth, lng],
-    [latitudeSouth, wrapLongitude(lng - longDegs)],
-    [latitudeSouth, wrapLongitude(lng + longDegs)]
-  ];
+  return {
+    nw: { lat: latitudeNorth, lng: wrapLongitude(lng - longDegs)},
+    n: { lat: latitudeNorth, lng: lng},
+    ne: { lat: latitudeNorth, lng: wrapLongitude(lng + longDegs)},
+    w: { lat: lat, lng: wrapLongitude(lng - longDegs)},
+    e: { lat: lat, lng: wrapLongitude(lng + longDegs)},
+    sw: { lat: latitudeSouth, lng: wrapLongitude(lng - longDegs)},
+    s: { lat: latitudeSouth, lng: lng},
+    se: { lat: latitudeSouth, lng: wrapLongitude(lng + longDegs)}
+  };
 }
 
 /**
@@ -498,38 +506,36 @@ export function circleOverlappingHashPrecision(lat:number, lng:number, radius:nu
 export function circleOverlappingHashes(lat:number,  lng:number, radius:number): string[] {
   const queryBits = Math.max(1, boundingBoxBits(lat, lng, radius));
   const geohashPrecision = Math.ceil(queryBits / BITS_PER_CHAR);
-  const coordinates = boundingBoxCoordinates(lat, lng, radius);
-  const queries = coordinates.map((coords) => {
-    return geohashQuery(encode(coords[0], coords[1], geohashPrecision), queryBits);
-  });
-  const hashes:string[] = [];
-  const seen = new Map<string, boolean>();
-  // navigate through the queries and add unique hashes into the result
-  for (let i = 0; i < queries.length; i++) {
-    let start = queries[i][0];
-    const end = queries[i][1];
-    console.log('query: ' + start + ' -> ' + end);
-    while (start < end) {
-      if (!seen.has(start)) {
-        hashes.push(start);
-        seen.set(start, true);
-      }
-      let lastCharPos:number;
-      if (start.length < end.length) {
-        lastCharPos = 0;
-      } else {
-        lastCharPos = BASE32.indexOf(start[start.length - 1]);
-        start = start.substring(0, start.length - 1);
-      }
+  const coords = boundingBoxCoordinates(lat, lng, radius);
+  // the hashes are only 9 boxes which will fit the circle inside
+  // we need to fill the gaps in the matrix
+  const leftBound:string[] = [];
+  const rightBound:string[] = [];
+  let hash = encode(coords.nw.lat, coords.nw.lng, geohashPrecision);
+  let nextHash = encode(coords.sw.lat, coords.sw.lng, geohashPrecision);
+  leftBound.push(hash);
+  while (hash != nextHash) {
+    hash = adjacent(hash, 's');
+    leftBound.push(hash);
+  }
+  hash = encode(coords.ne.lat, coords.ne.lng, geohashPrecision);
+  nextHash = encode(coords.se.lat, coords.se.lng, geohashPrecision);
+  rightBound.push(hash);
+  while (hash != nextHash) {
+    hash = adjacent(hash, 's');
+    rightBound.push(hash);
+  }
 
-      if (lastCharPos >= 0 && lastCharPos < BASE32.length - 1) {
-        start = start + BASE32[lastCharPos + 1];
-      } else {
-        // no more character
-        break;
-      }
+  const hashes:string[] = [];
+  for (let i = 0; i < leftBound.length; i++) {
+    hash = leftBound[i];
+    hashes.push(hash);
+    while (hash != rightBound[i]) {
+      hash = adjacent(hash, 'e');
+      hashes.push(hash);
     }
   }
+
   return hashes;
 }
 

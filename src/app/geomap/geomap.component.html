@@ -62,6 +62,7 @@
   <div id="map" #map></div>
 </div>
 <h3>Neighbours</h3>
+<div class="current-location">Current location: {{location.hash}}</div>
 <div class="neighbours">
   <span [ngClass]="{ 'current': neighbour == location.hash }" *ngFor="let neighbour of neighbours">
     {{neighbour}}
