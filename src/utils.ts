@@ -507,8 +507,35 @@ export function circleOverlappingHashes(lat:number,  lng:number, radius:number):
   const queryBits = Math.max(1, boundingBoxBits(lat, lng, radius));
   const geohashPrecision = Math.ceil(queryBits / BITS_PER_CHAR);
   const coords = boundingBoxCoordinates(lat, lng, radius);
-  // the hashes are only 9 boxes which will fit the circle inside
-  // we need to fill the gaps in the matrix
+  // we've got the 8 points of the bounding box which will cover the area
+	// of the circle which center is at the location
+	// and radius is the default NeighbourhoodRadius
+	// it will look like this (sorry for the circle) ¯\_(ツ)_/¯
+	// +----+          +----+            +----+
+	// | NW |          |  N |            | NE |
+	// |    |          | XXXXXX          |    |
+	// +----+        XXXX---+ XXXX       +----+
+	//           XXXX            XXXX
+	//         XXX                  XXX
+	//         X                       XX
+	//        XX                        XX
+	// +----+XX                          X----+
+	// | W  |X                           X  E |
+	// |    |X            X              X    |
+	// +----+X          (center)         X----+
+	//       XX                         XX
+	//        XX                        X
+	//         XX                      XX
+	//          XXX                   XX
+	// +----+     XXXX +----+   XXXXXX   +----+
+	// |    |         XXXXXXXXXX         |    |
+	// | SW |          |  S |            | SE |
+	// +----+          +----+            +----+
+	// we need to fill in the gap
+	// so that we get the full matrix of neighourhood geohashes
+	// as an 1D array
+	// we start by create 2 x 1D array, which is the leftBound and the rightBound
+	// then fill up from left to right by going East
   const leftBound:string[] = [];
   const rightBound:string[] = [];
   let hash = encode(coords.nw.lat, coords.nw.lng, geohashPrecision);
